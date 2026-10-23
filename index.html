@@ -1,82 +1,255 @@
--- Italy Trip 2026 · V2.5 · Step 66
--- Only creates a new bookings table and its access policies.
--- Does not alter existing itinerary, expense, membership or finance tables.
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#173b32"><title>Italy Trip 2026 · 共享行程</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20302b;background:#f6f5f0}*{box-sizing:border-box}body{margin:0}header{background:#173b32;color:white;padding:22px 18px 18px}header h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:#d1e3db;font-size:13px}.wrap{max-width:850px;margin:auto;padding:16px 14px 90px}.panel,.item{background:#fff;border:1px solid #e4e6e0;border-radius:15px;padding:16px;margin:0 0 13px;box-shadow:0 2px 8px #152c2010}.muted{color:#63736d;font-size:13px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}.days{display:flex;gap:8px;overflow:auto;padding:3px 0 13px}.day{flex:0 0 auto;min-width:65px}.day.active{background:#173b32;color:#fff}button{border:1px solid #ccd6cf;background:#fff;color:#173b32;border-radius:10px;padding:10px 13px;font-weight:600;cursor:pointer}button.primary{background:#173b32;color:white;border-color:#173b32}button.danger{color:#a62c2c;border-color:#f0c5c5}button:disabled{opacity:.5;cursor:not-allowed}input,textarea,select{display:block;width:100%;padding:11px;border:1px solid #cbd3cd;border-radius:9px;background:#fff;font:inherit;margin:5px 0 12px}textarea{min-height:72px;resize:vertical}label{display:block;font-size:13px;font-weight:600}.expenseGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.expenseGrid>*{min-width:0}.tabs{display:flex;gap:8px;margin:12px 0}.tabs button{flex:1;min-width:0;padding:9px 5px;font-size:12px}.tabs button.active{background:#173b32;color:white}.splitrow{display:grid;grid-template-columns:85px 1fr;align-items:center;gap:8px}.splitrow input{margin:3px 0 9px}.stat{font-size:22px;font-weight:700}.warning{color:#a62c2c}.good{color:#206c4c}@media(max-width:500px){.expenseGrid{grid-template-columns:1fr}}h2{font-size:19px;margin:0 0 10px}h3{font-size:17px;margin:0 0 6px;overflow-wrap:anywhere}.time{font-weight:700;color:#27584a}.chip{background:#ecf4ef;border-radius:7px;padding:4px 7px;font-size:12px;color:#2c6251}.detail{white-space:pre-wrap;overflow-wrap:anywhere;margin:9px 0;font-size:14px;line-height:1.6}.detail b{color:#3c554a}#notice{white-space:pre-wrap;line-height:1.5}#notice.error{color:#a12a2a}#notice.ok{color:#266746}.hidden{display:none!important}.actions{margin-top:12px}.toolbar{margin:12px 0}.login{max-width:460px;margin:20px auto}.empty{text-align:center;padding:30px;color:#6a7970}a{color:#216d57}.small{font-size:12px}#editor{border:2px solid #8aafa0}hr{border:0;border-top:1px solid #e4e6e0;margin:15px 0}
+</style></head><body>
+<header><div style="max-width:850px;margin:auto"><h1>🇮🇹 Italy Trip 2026</h1><p>12月14–22日 · 三人共享行程与记账 · V2.5</p></div></header>
+<main class="wrap"><div id="notice" class="panel muted">正在初始化…</div>
+<section id="login" class="panel login hidden"><h2>旅行成员登录</h2><p class="muted">请使用在 Supabase 创建的 Email 和密码。此版本只允许已加入旅行的成员查看行程。</p><form id="loginForm"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>密码<input id="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit" id="loginBtn">登录</button></form><hr><button id="resetBtn" type="button">忘记密码？发送重设邮件</button><p class="muted small">重设邮件需要 Supabase Authentication → URL Configuration 正确设置 Site URL / Redirect URLs。</p></section>
+<section id="recovery" class="panel login hidden"><h2>设置新密码</h2><p class="muted">通过邮箱里的重设链接打开此页面后，在这里设置新密码。</p><form id="recoveryForm"><label>新密码（至少8位）<input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></label><button class="primary" type="submit">保存新密码</button></form></section>
+<section id="app" class="hidden"><div class="panel"><div class="row spread"><div><b id="userEmail"></b><div id="userRole" class="muted"></div></div><button id="logoutBtn">退出登录</button></div><p class="muted small">在线修改会写入 Supabase。离线时仅可查看本机上次成功加载的行程，不支持离线编辑。</p><div class="row"><button id="refreshBtn">↻ 重新同步</button><button id="exportBtn">↓ 导出行程 JSON</button><button id="fullBackupBtn">🛡️ 行程/记账云端备份 JSON</button><button id="previewRestoreBtn">🔍 检查备份 / 恢复预览</button></div></div><section id="restorePreview" class="panel hidden"><div class="row spread"><h2>🔍 备份差异检查与安全补回</h2><button id="closeRestoreBtn" type="button">关闭</button></div><p class="muted">选择之前下载的完整云端备份 JSON。先预览差异。仅 Owner 可以选择补回缺失的行程和消费；已有云端记录不会覆盖或删除。</p><label>选择备份 JSON<input id="restoreFile" type="file" accept=".json,application/json"></label><div id="restoreReport" class="detail muted">尚未选择文件。</div><button id="restoreMissingBtn" type="button" class="danger hidden">补回云端缺失记录（Owner）</button><p class="muted small">执行前将自动下载最新云端完整备份。请先确认下载文件已保存；恢复过程中请其他成员暂停编辑。成员、名字和汇率设置不会被恢复。</p></section><div class="tabs"><button id="itineraryTab" class="active">🗓️ 行程</button><button id="expensesTab">💶 三人记账</button><button id="bookingsTab">✈️ 预订</button><button id="settingsTab">⚙️ 设置</button></div><div id="itineraryView"><div class="days" id="days"></div><div class="row spread toolbar"><h2 id="dayTitle"></h2><button class="primary" id="addBtn">＋ 新增活动</button></div><div id="items"></div>
+<section id="editor" class="panel hidden"><div class="row spread"><h2 id="editorTitle">编辑活动</h2><button type="button" id="cancelBtn">取消</button></div><form id="itemForm"><input type="hidden" id="itemId"><label>日期<input id="fDate" type="date" min="2026-12-14" max="2026-12-22" required></label><label>时间（可写时间范围和备注）<input id="fTime" placeholder="09:00–10:30"></label><label>活动名称（可留空）<input id="fTitle" placeholder="例如：喝咖啡 / 自由活动"></label><label>地区<input id="fArea"></label><label>景点介绍<textarea id="fDescription"></textarea></label><label>当地美食 / 餐厅<textarea id="fFood"></textarea></label><label>交通 / 车站 / 停车<textarea id="fTransport"></textarea></label><label>缓冲时间<textarea id="fBuffer"></textarea></label><label>营业及确认状态<textarea id="fStatus"></textarea></label><label>优先级<select id="fPriority"><option value="">未设置</option><option>必做</option><option>必去</option><option>必吃</option><option>推荐</option><option>可选</option></select></label><label>额外备注<textarea id="fNotes"></textarea></label><button class="primary" type="submit" id="saveBtn">保存到共享行程</button></form></section></div>
+<div id="bookingsView" class="hidden"><div class="panel"><div class="row spread"><h2>✈️ 预订管理</h2><button id="addBookingBtn" class="primary">＋ 新增预订</button></div><p class="muted">V2.5 第一阶段：三人共享预订资料，可新增、编辑、删除。订单金额仅作参考，<b>不会计入三人记账</b>。付款自动关联将在 V2.6 开发。</p><p class="warning small">重要：当前「完整云端备份」V2.0 格式尚不包含预订资料。V2.5 新增「单独导出预订 JSON」按钮，请每次更新预订后保存。</p><div class="row"><button id="reloadBookingsBtn">↻ 更新预订</button><button id="exportBookingsBtn">↓ 单独导出预订 JSON</button></div></div><div id="bookingList"></div><section id="bookingEditor" class="panel hidden"><div class="row spread"><h2 id="bookingEditorTitle">新增预订</h2><button type="button" id="cancelBookingBtn">取消</button></div><form id="bookingForm"><input type="hidden" id="bId"><div class="expenseGrid"><label>预订类别<select id="bType"><option value="hotel">🏨 酒店</option><option value="flight">✈️ 机票</option><option value="car">🚗 租车</option><option value="train">🚆 火车</option><option value="ticket">🎟️ 门票</option><option value="activity">⛷️ 活动</option><option value="other">其他</option></select></label><label>状态<select id="bStatus"><option value="planned">计划中</option><option value="confirmed">已确认</option><option value="cancelled">已取消</option></select></label></div><label>预订名称<input id="bTitle" required maxlength="200" placeholder="例如 Lamondis / SIXT Verona"></label><div class="expenseGrid"><label>开始日期<input type="date" id="bStartDate"></label><label>开始时间（意大利当地）<input type="time" id="bStartTime"></label><label>结束日期<input type="date" id="bEndDate"></label><label>结束时间（意大利当地）<input type="time" id="bEndTime"></label></div><p class="muted small">本次意大利12月行程使用意大利冬令时间（UTC+1）。日期可只填日期，不填时间；不支持自动转换其他国家时区。</p><label>地点 / 地址<input id="bLocation"></label><label>供应商 / 酒店 / 航司<input id="bProvider"></label><label>确认号码<input id="bCode" autocomplete="off"></label><div class="expenseGrid"><label>订单总金额（可留空）<input id="bAmount" type="number" min="0" step="0.01" inputmode="decimal"></label><label>币种<select id="bCurrency"><option>EUR</option><option>SGD</option></select></label></div><label>付款截止日期<input id="bDue" type="date"></label><label>备注 / 取还车 / 行李 / 入住说明<textarea id="bNotes"></textarea></label><button class="primary" id="saveBookingBtn" type="submit">保存到共享预订</button></form></section></div><div id="settingsView" class="hidden"><div class="panel"><h2>⚙️ 成员名字与汇率</h2><p class="muted">只有 Owner 可以修改；所有成员都能查看。成员姓名只用于显示，不会改变 Supabase 登录账号。</p><form id="settingsForm"><div id="nameSettings"></div><label>默认汇率：1 EUR = 多少 SGD<input id="defaultRate" type="number" step="0.000001" min="0.000001" required inputmode="decimal"></label><p class="muted small">1.50 是数据库初始化测试值，不是实时汇率。请设置实际适用的参考汇率；每笔消费保存当时采用的汇率。</p><button class="primary" id="saveSettingsBtn" type="submit">保存成员名字与默认汇率</button></form></div></div><div id="expensesView" class="hidden"><div class="panel"><div class="row spread"><h2>💶 旅行记账</h2><button class="primary" id="addExpenseBtn">＋ 记录消费</button></div><p class="muted">三人共用同一份账本。每笔消费独立于行程，删除景点不会删除消费。当前支持 EUR / SGD、个人消费自动归属、平分、自定义金额和请客；结算以 SGD 为统一单位。</p><div id="expenseStats"></div><div id="categoryStats" class="panel" style="background:#f6faf7;margin-top:10px"></div><div id="personalStats" class="panel" style="background:#f6faf7;margin-top:10px"></div><button id="reloadExpensesBtn">↻ 更新账本</button><button id="exportExpensesBtn">↓ 导出记账 CSV</button></div><div id="settlement" class="panel"></div><div id="expenseList"></div>
+<section id="expenseEditor" class="panel hidden"><div class="row spread"><h2 id="expenseEditorTitle">新增消费</h2><button id="cancelExpenseBtn" type="button">取消</button></div><form id="expenseForm"><input type="hidden" id="expenseId"><label>日期<input id="eDate" type="date" min="2026-12-14" max="2026-12-22" required></label><label>消费项目<input id="eTitle" required placeholder="例如：晚餐 / 停车费"></label><div class="expenseGrid"><label>类别<select id="eCategory"><option value="food">餐饮</option><option value="transport">交通/停车</option><option value="hotel">住宿</option><option value="tickets">门票/活动</option><option value="shopping">购物</option><option value="other">其他</option></select></label><label>币种<select id="eCurrency"><option value="EUR">EUR €</option><option value="SGD">SGD S$</option></select></label></div><div class="expenseGrid"><label>总金额<input id="eAmount" type="number" step="0.01" min="0.01" inputmode="decimal" required placeholder="90.00"></label><label>付款人<select id="ePayer" required></select></label></div><label>1 EUR = 多少 SGD（EUR 消费必填）<input id="eRate" type="number" min="0.000001" step="0.000001" inputmode="decimal" placeholder="例如 1.50"></label><p class="muted small">自动带入 Owner 设置的默认汇率；如该笔实际汇率不同，可单独修改。本 App 不会自动抓取汇率。</p><label>分摊方式<select id="eMode"><option value="personal">🛍️ 个人消费（自动100%）</option><option value="equal">参与者平分</option><option value="custom">自定义每人金额</option><option value="treat">🎁 请客（付款人承担全部）</option></select></label><div id="personalBox" class="hidden"><label>这是谁的个人消费？<select id="eBeneficiary"></select></label><p class="muted small">默认是付款人；代付时可选择实际消费的人，系统自动计算欠款。</p></div><div id="participantBox"><b>谁参与这笔消费？</b><p class="muted small">默认三人参与；取消勾选后不分摊该成员。</p><div id="participantInputs"></div></div><div id="splitInputs"></div><div id="splitCheck" class="muted"></div><label>备注<textarea id="eNote" placeholder="例如：账单详情"></textarea></label><button id="saveExpenseBtn" class="primary" type="submit">保存到三人共享账本</button></form></section></div>
+</section></main>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Project URL 必须是根网址，不能带 /rest/v1/
+const SUPABASE_URL='https://vmelgbmmugajivsjznuh.supabase.co';
+const SUPABASE_KEY='sb_publishable_u2gEolh073wmY6rCeISHgA_T65YMzFr';
+const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=id=>document.getElementById(id);
+const dates=Array.from({length:9},(_,i)=>`2026-12-${String(14+i).padStart(2,'0')}`);
+const cacheKey='italy_trip_2026_v17_shared_cache';
+let bookings=[],bookingBusy=false;let trip=null,member=null,items=[],selected=dates[0],busy=false,loadSequence=0,recovering=false;let members=[],expenses=[],splits=[],expenseBusy=false,activeTab="itinerary",memberNames={},defaultRate=1.50,lastPayer="";
+function notice(s,type=''){ $('notice').textContent=s;$('notice').className='panel '+(type||'muted'); }
+function errorText(e){return e?.message||String(e)}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function toggle(id,on){$(id).classList.toggle('hidden',!on)}
+function formatDate(d){return `${Number(d.slice(-2))}日 · ${['周一','周二','周三','周四','周五','周六','周日'][(new Date(d+'T12:00:00').getDay()+6)%7]}`}
+function sortItems(a,b){return a.day_date.localeCompare(b.day_date)||(a.sort_order??0)-(b.sort_order??0)||String(a.id).localeCompare(String(b.id))}
+function showDetails(label,val){return val?`<div class="detail"><b>${label}：</b>${escapeHtml(val)}</div>`:''}
+function render(){ $('days').innerHTML=dates.map(d=>`<button class="day ${d===selected?'active':''}" data-date="${d}">${d.slice(-2)}日</button>`).join(''); $('dayTitle').textContent=`12月${formatDate(selected)} · ${items.filter(i=>i.day_date===selected).length}项`;
+const todays=items.filter(i=>i.day_date===selected).sort(sortItems);
+$('items').innerHTML=todays.length?todays.map(i=>`<article class="item"><div class="row spread"><span class="time">${escapeHtml(i.start_time||'时间未设置')}</span><span class="chip">${escapeHtml(i.priority||'活动')}</span></div><h3>${escapeHtml(i.title||'未命名活动')}</h3><div class="muted">${escapeHtml(i.area||i.location||'')}</div>${showDetails('介绍',i.description)}${showDetails('美食',i.food)}${showDetails('交通',i.transport)}${showDetails('缓冲',i.buffer)}${showDetails('营业/确认',i.status)}${showDetails('备注',i.notes)}<div class="row actions"><button data-edit="${escapeHtml(i.id)}">编辑</button><button data-move="up" data-id="${escapeHtml(i.id)}">↑ 上移</button><button data-move="down" data-id="${escapeHtml(i.id)}">↓ 下移</button><button class="danger" data-delete="${escapeHtml(i.id)}">删除</button></div></article>`).join(''):'<div class="panel empty">当天暂无活动，可以点击「新增活动」。</div>';
+const can=member?.role==='owner'||member?.role==='editor';$('addBtn').disabled=!can;document.querySelectorAll('[data-edit],[data-move],[data-delete]').forEach(b=>b.disabled=!can);
+}
+function setBusy(v){busy=v;$('saveBtn').disabled=v;$('loginBtn').disabled=v;}
+async function init(){try{const {data:{session},error}=await supabase.auth.getSession();if(error)throw error;await onSession(session);}catch(e){notice('初始化失败：'+errorText(e),'error');toggle('login',true);}}
+async function onSession(session){if(recovering)return;const seq=++loadSequence;toggle('editor',false);if(!session){trip=null;member=null;items=[];members=[];expenses=[];splits=[];bookings=[];memberNames={};toggle('login',true);toggle('app',false);notice('请先登录。');return;}
+toggle('login',false);toggle('app',true);$('userEmail').textContent=session.user.email||'已登录';notice('正在从 Supabase 读取共享行程…');try{
+const {data:trips,error:te}=await supabase.from('trips').select('id,name,start_date,end_date').eq('name','Italy Trip 2026').eq('start_date','2026-12-14').eq('end_date','2026-12-22');if(te)throw te;if(seq!==loadSequence)return;if(!trips||trips.length!==1)throw new Error('找不到唯一的 Italy Trip 2026，或账号尚未被加入成员名单。');trip=trips[0];
+const {data:members,error:me}=await supabase.from('trip_members').select('role').eq('trip_id',trip.id).eq('user_id',session.user.id).single();if(me)throw me;member=members;$('userRole').textContent=`旅行权限：${member.role}`;
+await refresh(seq);await loadExpenseMembers();await loadFinanceSettings();
+}catch(e){if(seq!==loadSequence)return;notice('无法读取旅行项目：'+errorText(e)+'\n请检查成员权限及 Supabase API 设置。','error');toggle('app',false);toggle('login',true);}}
+async function refresh(seq=loadSequence){if(!trip)return;try{const {data,error}=await supabase.from('itinerary_items').select('*').eq('trip_id',trip.id).order('day_date',{ascending:true}).order('sort_order',{ascending:true}).range(0,999);if(error)throw error;if(seq!==loadSequence)return;items=data||[];localStorage.setItem(cacheKey,JSON.stringify({tripId:trip.id,items,savedAt:new Date().toISOString()}));render();notice(`已同步：${items.length}项行程 · ${new Date().toLocaleString('zh-CN')}`,'ok');}catch(e){if(seq!==loadSequence)return;let c=null;try{c=JSON.parse(localStorage.getItem(cacheKey)||'null')}catch{}if(c?.tripId===trip.id&&Array.isArray(c.items)){items=c.items;render();notice('目前无法连接 Supabase，显示上次缓存的行程（只读）：'+errorText(e),'error');}else{notice('同步失败：'+errorText(e),'error');} } }
+function edit(item){$('editorTitle').textContent=item?'编辑活动':'新增活动';$('itemId').value=item?.id||'';$('fDate').value=item?.day_date||selected;$('fTime').value=item?.start_time||'';$('fTitle').value=item?.title||'';$('fArea').value=item?.area||item?.location||'';$('fDescription').value=item?.description||'';$('fFood').value=item?.food||'';$('fTransport').value=item?.transport||'';$('fBuffer').value=item?.buffer||'';$('fStatus').value=item?.status||'';$('fPriority').value=item?.priority||'';$('fNotes').value=item?.notes||'';toggle('editor',true);$('editor').scrollIntoView({behavior:'smooth',block:'start'});}
+function getPayload(){const date=$('fDate').value;if(!dates.includes(date))throw new Error('日期必须在12月14日至22日之间。');return {day_date:date,start_time:$('fTime').value.trim(),title:$('fTitle').value.trim(),location:$('fArea').value.trim(),area:$('fArea').value.trim(),description:$('fDescription').value.trim(),food:$('fFood').value.trim(),transport:$('fTransport').value.trim(),buffer:$('fBuffer').value.trim(),status:$('fStatus').value.trim(),priority:$('fPriority').value,notes:$('fNotes').value.trim(),updated_at:new Date().toISOString()};}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;setBusy(true);notice('正在登录…');try{const {error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)throw error;$('password').value='';}catch(e){notice('登录失败：'+errorText(e),'error')}finally{setBusy(false)}});
+$('resetBtn').addEventListener('click',async()=>{const email=$('email').value.trim();if(!email){notice('请先在 Email 栏填写你的邮箱。','error');return;}try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error;notice('已请求发送重设密码邮件。请检查邮箱，并确认 Supabase 已配置对应 Redirect URL。','ok')}catch(e){notice('发送失败：'+errorText(e),'error')}});
+$('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();const password=$('newPassword').value;if(password.length<8){notice('密码至少8位。','error');return;}try{const {error}=await supabase.auth.updateUser({password});if(error)throw error;recovering=false;toggle('recovery',false);$('newPassword').value='';notice('密码修改成功，正在读取共享行程…','ok');const {data:{session}}=await supabase.auth.getSession();await onSession(session);}catch(err){notice('密码修改失败：'+errorText(err),'error')}});
+$('logoutBtn').addEventListener('click',async()=>{const {error}=await supabase.auth.signOut();if(error)notice('退出失败：'+errorText(error),'error')});
+$('refreshBtn').addEventListener('click',()=>refresh());$('addBtn').addEventListener('click',()=>edit(null));$('cancelBtn').addEventListener('click',()=>toggle('editor',false));
+$('days').addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b){selected=b.dataset.date;toggle('editor',false);render();}});
+$('items').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||busy)return;const id=b.dataset.edit||b.dataset.delete||b.dataset.id;const item=items.find(x=>x.id===id);if(!item)return;if(b.dataset.edit){edit(item);return;}if(b.dataset.delete){if(!confirm('确定删除这个活动吗？这只删除该行程项目，不会删除旅行消费或照片。'))return;setBusy(true);try{const {error}=await supabase.from('itinerary_items').delete().eq('id',id).eq('trip_id',trip.id);if(error)throw error;await refresh();}catch(err){notice('删除失败：'+errorText(err),'error')}finally{setBusy(false)}return;}
+if(b.dataset.move){const same=items.filter(x=>x.day_date===item.day_date).sort(sortItems);const ix=same.findIndex(x=>x.id===id);const j=ix+(b.dataset.move==='up'?-1:1);if(j<0||j>=same.length)return;setBusy(true);try{ // Temporary unique ordering values; reorder by updating only two rows.
+const a=same[ix],z=same[j];const aOrder=a.sort_order??ix+1,zOrder=z.sort_order??j+1;
+if(aOrder===zOrder){notice('当前排序编号重复，请先刷新再试。','error');return;}
+const temp=-Math.floor(Date.now()/1000);const r1=await supabase.from('itinerary_items').update({sort_order:temp}).eq('id',a.id).eq('trip_id',trip.id);if(r1.error)throw r1.error;const r2=await supabase.from('itinerary_items').update({sort_order:aOrder}).eq('id',z.id).eq('trip_id',trip.id);if(r2.error)throw r2.error;const r3=await supabase.from('itinerary_items').update({sort_order:zOrder}).eq('id',a.id).eq('trip_id',trip.id);if(r3.error)throw r3.error;await refresh();}catch(err){notice('调整顺序失败，请刷新检查：'+errorText(err),'error')}finally{setBusy(false)} }
+});
+$('itemForm').addEventListener('submit',async e=>{e.preventDefault();if(busy||!trip)return;setBusy(true);try{const payload=getPayload();const id=$('itemId').value;let result;if(id){result=await supabase.from('itinerary_items').update(payload).eq('id',id).eq('trip_id',trip.id);}else{const same=items.filter(x=>x.day_date===payload.day_date);payload.trip_id=trip.id;payload.sort_order=Math.max(0,...same.map(x=>Number(x.sort_order)||0))+1;result=await supabase.from('itinerary_items').insert(payload);}if(result.error)throw result.error;selected=payload.day_date;toggle('editor',false);await refresh();window.scrollTo({top:0,behavior:'smooth'});}catch(err){notice('保存失败：'+errorText(err),'error')}finally{setBusy(false)}});
+$('exportBtn').addEventListener('click',()=>{const data={app:'Italy Trip 2026',type:'supabase-itinerary-backup',version:'2.1',exportedAt:new Date().toISOString(),tripId:trip?.id,itinerary:items};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Italy_Trip_2026_Shared_Backup_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 
-begin;
+// V2.0: download a read-only full backup from live Supabase tables.
+function downloadJsonFile(obj,filename){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);}
+$('fullBackupBtn').addEventListener('click',async()=>{
+ if(!trip)return;
+ const btn=$('fullBackupBtn');btn.disabled=true;notice('正在从云端读取行程及记账备份（不含预订），请不要关闭页面…');
+ try{
+  const tables=['itinerary_items','trip_expenses','trip_expense_splits','trip_members','trip_member_labels','trip_finance_settings'];
+  const results={};
+  for(const table of tables){
+   const rows=[];let from=0;
+   while(true){
+    const {data,error}=await supabase.from(table).select('*').eq('trip_id',trip.id).range(from,from+499);
+    if(error)throw new Error(table+' 读取失败：'+errorText(error));
+    rows.push(...(data||[]));
+    if(!data||data.length<500)break;
+    from+=500;
+    if(from>100000)throw new Error(table+' 数据量超过安全限制，请联系开发者');
+   }
+   results[table]=rows;
+  }
+  if(results.itinerary_items.length!==items.length)throw new Error('云端行程数量与当前页面不一致。请先刷新同步，再尝试备份。');
+  const expenseIds=new Set(results.trip_expenses.map(x=>x.id));
+  if(results.trip_expense_splits.some(x=>!expenseIds.has(x.expense_id)))throw new Error('检测到分摊记录与消费记录不匹配，已停止备份。');
+  downloadJsonFile({app:'Italy Trip 2026',type:'full-cloud-backup',version:'2.0',exportedAt:new Date().toISOString(),trip:{id:trip.id,name:trip.name,start_date:trip.start_date,end_date:trip.end_date},tables:results},`Italy_Trip_2026_Full_Backup_${new Date().toISOString().slice(0,10)}.json`);
+  notice(`行程及记账备份已生成：${results.itinerary_items.length} 项行程、${results.trip_expenses.length} 笔消费。请妥善保存 JSON 文件。`,'ok');
+ }catch(err){notice('完整备份未完成，未生成文件：'+errorText(err),'error');}
+ finally{btn.disabled=false;}
+});
 
-create table if not exists public.trip_bookings (
-  id uuid primary key default gen_random_uuid(),
-  trip_id uuid not null references public.trips(id) on delete cascade,
-  booking_type text not null check (booking_type in ('hotel','flight','car','train','ticket','activity','other')),
-  title text not null check (length(btrim(title)) between 1 and 200),
-  booking_status text not null default 'planned' check (booking_status in ('planned','confirmed','cancelled')),
-  start_at timestamptz,
-  end_at timestamptz,
-  location_text text not null default '',
-  confirmation_code text not null default '',
-  provider text not null default '',
-  total_amount numeric(14,2) check (total_amount is null or total_amount >= 0),
-  currency text not null default 'EUR' check (currency in ('EUR','SGD')),
-  payment_due_date date,
-  notes text not null default '',
-  created_by uuid not null default auth.uid() references auth.users(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint booking_time_order check (start_at is null or end_at is null or end_at >= start_at)
-);
+// V2.4: read-only field-level comparison. Never mutates cloud data.
+$('previewRestoreBtn').onclick=()=>{toggle('restorePreview',true);$('restoreReport').textContent='尚未选择文件。';$('restoreFile').value='';$('restorePreview').scrollIntoView({behavior:'smooth'});};
+$('closeRestoreBtn').onclick=()=>toggle('restorePreview',false);
+function backupRowKey(name,r){return name==='trip_members'||name==='trip_member_labels'?r.user_id:name==='trip_finance_settings'?r.trip_id:name==='trip_expense_splits'?r.expense_id+'|'+r.user_id:r.id;}
+function normalizedValue(v){if(v===null)return 'null';if(Array.isArray(v))return '['+v.map(normalizedValue).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+normalizedValue(v[k])).join(',')+'}';return JSON.stringify(v);}
+function changedFields(a,b){return [...new Set([...Object.keys(a),...Object.keys(b)])].filter(k=>normalizedValue(a[k])!==normalizedValue(b[k]));}
+const RESTORE_TABLES=['itinerary_items','trip_expenses','trip_expense_splits','trip_members','trip_member_labels','trip_finance_settings'];
+let restoreState=null;
+async function readAllRows(name){
+ const out=[];let from=0;
+ while(true){const {data,error}=await supabase.from(name).select('*').eq('trip_id',trip.id).range(from,from+499);
+ if(error)throw new Error(name+' 读取失败：'+errorText(error));out.push(...(data||[]));if(!data||data.length<500)break;from+=500;if(from>100000)throw new Error(name+' 记录过多');}
+ return out;
+}
+function validateRestoreBackup(b){
+ if(b?.app!=='Italy Trip 2026'||b.type!=='full-cloud-backup'||b.version!=='2.0')throw new Error('只接受 V2.0 完整云端备份 JSON。');
+ if(!trip||b.trip?.id!==trip.id||b.trip?.name!==trip.name||b.trip?.start_date!==trip.start_date||b.trip?.end_date!==trip.end_date)throw new Error('备份不属于当前这趟旅行。');
+ for(const name of RESTORE_TABLES){
+  if(!Array.isArray(b.tables?.[name]))throw new Error('缺少资料表：'+name);
+  if(b.tables[name].some(r=>!r||typeof r!=='object'||Array.isArray(r)||r.trip_id!==trip.id))throw new Error(name+' 存在无效旅行资料。');
+  const keys=b.tables[name].map(r=>backupRowKey(name,r));
+  if(keys.some(k=>typeof k!=='string'||!k||k.includes('undefined'))||new Set(keys).size!==keys.length)throw new Error(name+' 存在重复或无效记录键。');
+ }
+ const expenseIds=new Set(b.tables.trip_expenses.map(x=>x.id));
+ if(b.tables.trip_expense_splits.some(x=>!expenseIds.has(x.expense_id)))throw new Error('备份的分摊记录缺少对应消费。');
+ const memberIds=new Set(b.tables.trip_members.map(x=>x.user_id));
+ if(memberIds.size!==3||b.tables.trip_member_labels.some(x=>!memberIds.has(x.user_id)))throw new Error('备份成员名单不完整。');
+ if(b.tables.trip_expenses.some(e=>!memberIds.has(e.paid_by)))throw new Error('备份有无效付款人。');
+ if(b.tables.trip_expense_splits.some(e=>!memberIds.has(e.user_id)))throw new Error('备份有无效分摊人。');
+ if(b.tables.itinerary_items.some(r=>!dates.includes(r.day_date)||!Number.isFinite(Number(r.sort_order))))throw new Error('备份有无效行程日期或排序。');
+}
+async function analyzeRestore(b){
+ validateRestoreBackup(b);
+ const rows=[],details=[],missing={};const liveTables={};
+ for(const name of RESTORE_TABLES){
+  const live=await readAllRows(name);liveTables[name]=live;
+  const backMap=new Map(b.tables[name].map(r=>[backupRowKey(name,r),r]));
+  const liveMap=new Map(live.map(r=>[backupRowKey(name,r),r]));
+  if(liveMap.size!==live.length)throw new Error(name+' 云端记录键重复。');
+  const onlyBack=[...backMap.keys()].filter(k=>!liveMap.has(k));
+  const onlyLive=[...liveMap.keys()].filter(k=>!backMap.has(k));
+  missing[name]=onlyBack.map(k=>backMap.get(k));
+  let changed=0;
+  for(const [key,oldRow] of backMap){if(!liveMap.has(key))continue;const fields=changedFields(oldRow,liveMap.get(key));if(fields.length){changed++;if(details.length<30)details.push({table:name,label:oldRow.title||oldRow.display_name||oldRow.name||String(key),fields});}}
+  rows.push({name,back:backMap.size,live:liveMap.size,onlyBack:onlyBack.length,onlyLive:onlyLive.length,changed});
+ }
+ return {rows,details,missing,liveTables};
+}
+function renderRestoreReport(b,analysis){
+ const {rows,details,missing}=analysis;const changes=rows.reduce((n,r)=>n+r.onlyBack+r.onlyLive+r.changed,0);
+ const restorable=missing.itinerary_items.length+missing.trip_expenses.length+missing.trip_expense_splits.length;
+ $('restoreReport').innerHTML='<p class="good"><b>✓ 旅行身份、备份结构及逐字段检查完成。</b></p><p>备份时间：'+escapeHtml(b.exportedAt||'未提供')+'</p><div style="overflow-x:auto"><table style="width:100%;font-size:12px;text-align:left"><thead><tr><th>资料表</th><th>备份</th><th>云端</th><th>仅备份</th><th>仅云端</th><th>同ID内容不同</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+escapeHtml(r.name)+'</td><td>'+r.back+'</td><td>'+r.live+'</td><td>'+r.onlyBack+'</td><td>'+r.onlyLive+'</td><td>'+r.changed+'</td></tr>').join('')+'</tbody></table></div>'+
+ (changes?'<p class="warning">发现 '+changes+' 处差异。仅备份的行程、消费及分摊可补回；仅云端和同ID不同内容均保留。</p>':'<p class="good">✓ 未发现记录级或字段级差异。</p>')+
+ (details.length?'<h3>字段差异（最多30条）</h3>'+details.map(d=>'<p><b>'+escapeHtml(d.table)+' · '+escapeHtml(d.label)+'</b>：'+escapeHtml(d.fields.join('、'))+'</p>').join(''):'')+
+ '<p class="muted small">可补回：行程 '+missing.itinerary_items.length+' 项、消费 '+missing.trip_expenses.length+' 笔、分摊 '+missing.trip_expense_splits.length+' 条。成员/姓名/汇率仅比较、不写入。写入前会重新读取云端；多人同时修改仍可能造成冲突。</p>';
+ toggle('restoreMissingBtn',member?.role==='owner'&&restorable>0);
+}
+$('restoreFile').addEventListener('change',async ev=>{
+ restoreState=null;toggle('restoreMissingBtn',false);
+ const file=ev.target.files?.[0];if(!file||!trip)return;
+ const report=$('restoreReport');report.className='detail muted';report.textContent='正在检查备份与云端资料…';
+ try{if(file.size>25*1024*1024)throw new Error('文件超过25MB。');const b=JSON.parse(await file.text());const analysis=await analyzeRestore(b);restoreState={b,analysis,tripId:trip.id};renderRestoreReport(b,analysis);}
+ catch(err){report.textContent='检查未通过：'+errorText(err);report.className='detail warning';}
+});
+$('restoreMissingBtn').addEventListener('click',async()=>{
+ if(member?.role!=='owner'||!restoreState||restoreState.tripId!==trip?.id)return;
+ const btn=$('restoreMissingBtn');btn.disabled=true;
+ try{
+  const {b}=restoreState;const latest=await analyzeRestore(b);renderRestoreReport(b,latest);
+  const count=latest.missing.itinerary_items.length+latest.missing.trip_expenses.length+latest.missing.trip_expense_splits.length;
+  if(!count){notice('云端已无缺失记录，无需恢复。','ok');return;}
+  const existingMemberIds=new Set(latest.liveTables.trip_members.map(m=>m.user_id));
+  if(b.tables.trip_members.some(m=>!existingMemberIds.has(m.user_id)))throw new Error('当前成员名单与备份不同。为安全起见停止恢复。');
+  const allExpenses=new Map([...latest.liveTables.trip_expenses,...latest.missing.trip_expenses].map(e=>[e.id,e]));
+  if(latest.missing.trip_expense_splits.some(s=>!allExpenses.has(s.expense_id)))throw new Error('待恢复分摊缺少对应消费。');
+  const snapshot={};for(const name of RESTORE_TABLES)snapshot[name]=latest.liveTables[name];
+  downloadJsonFile({app:'Italy Trip 2026',type:'full-cloud-backup',version:'2.0',exportedAt:new Date().toISOString(),trip:{id:trip.id,name:trip.name,start_date:trip.start_date,end_date:trip.end_date},tables:snapshot},'Italy_Trip_2026_Before_Restore_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json');
+  notice('已触发下载恢复前云端备份。请确认文件已保存，再决定是否执行。');
+  if(!confirm('请确认浏览器已经保存【恢复前云端备份】JSON 文件。没有保存请按取消。\n\n本次仅补回 '+latest.missing.itinerary_items.length+' 项行程、'+latest.missing.trip_expenses.length+' 笔消费、'+latest.missing.trip_expense_splits.length+' 条分摊；不会删除或覆盖已有资料。\n\n注意：多表操作并非原子事务，可能部分成功。继续吗？'))return;
+  if(!confirm('最后确认：即将写入真实 Supabase 云端资料。请确保其他两位成员暂时不要编辑。确定执行补回吗？'))return;
+  const inserted={itinerary_items:0,trip_expenses:0,trip_expense_splits:0};
+  for(const name of ['itinerary_items','trip_expenses','trip_expense_splits']){
+   for(const row of latest.missing[name]){
+    // Re-check each key before insert. Never upsert, update or delete.
+    const key=backupRowKey(name,row);const current=await readAllRows(name);
+    if(current.some(r=>backupRowKey(name,r)===key))continue;
+    if(name==='trip_expense_splits'){
+     const parents=await readAllRows('trip_expenses');if(!parents.some(e=>e.id===row.expense_id))throw new Error('分摊对应消费不存在：已停止');
+    }
+    const {error}=await supabase.from(name).insert(row);
+    if(error)throw new Error(name+' 插入失败：'+errorText(error));
+    inserted[name]++;
+   }
+  }
+  const after=await analyzeRestore(b);restoreState={b,analysis:after,tripId:trip.id};renderRestoreReport(b,after);
+  await refresh();await loadExpenses();
+  notice('补回执行完毕：行程 '+inserted.itinerary_items+'、消费 '+inserted.trip_expenses+'、分摊 '+inserted.trip_expense_splits+'。请检查下方比较表与账本。','ok');
+ }catch(err){notice('恢复已停止，可能有部分记录已写入；请重新预览并核对。原因：'+errorText(err),'error');$('restoreReport').insertAdjacentHTML('beforeend','<p class="warning">恢复过程中出现问题。请重新选择备份文件检查差异，切勿盲目重复操作。</p>');}
+ finally{btn.disabled=false;}
+});
 
-create index if not exists trip_bookings_trip_start_idx
-  on public.trip_bookings (trip_id, start_at);
+// V1.8 shared expenses: all amounts are stored in their original currency.
+const categoryLabels={food:'餐饮',transport:'交通/停车',hotel:'住宿',tickets:'门票/活动',shopping:'购物',other:'其他'};
+const cents=v=>Math.round((Number(v)+Number.EPSILON)*100);
+const money=(c,n)=>`${c==='EUR'?'€':'S$'}${Number(n).toFixed(2)}`;
+const memberLabel=id=>{const i=members.findIndex(m=>m.user_id===id);return i<0?'未知成员':(memberNames[id]||`旅伴 ${i+1}`)};
+function memberOptions(){return members.map(m=>`<option value="${escapeHtml(m.user_id)}">${memberLabel(m.user_id)} (${escapeHtml(m.role)})</option>`).join('')}
+async function loadExpenseMembers(){const {data,error}=await supabase.from('trip_members').select('user_id,role').eq('trip_id',trip.id);if(error)throw error;members=(data||[]).sort((a,b)=>(a.role==='owner'?-1:1)-(b.role==='owner'?-1:1)||a.user_id.localeCompare(b.user_id));if(members.length!==3)notice(`提醒：成员名单当前有 ${members.length} 人，请确认三人设置。`,'error');$('ePayer').innerHTML=memberOptions();}
+function switchTab(tab){activeTab=tab;toggle('itineraryView',tab==='itinerary');toggle('expensesView',tab==='expenses');toggle('settingsView',tab==='settings');toggle('bookingsView',tab==='bookings');$('itineraryTab').classList.toggle('active',tab==='itinerary');$('expensesTab').classList.toggle('active',tab==='expenses');$('settingsTab').classList.toggle('active',tab==='settings');$('bookingsTab').classList.toggle('active',tab==='bookings');if(tab==='expenses')loadExpenses();if(tab==='bookings')loadBookings();if(tab==='settings')renderSettings();}
+$('itineraryTab').onclick=()=>switchTab('itinerary');$('expensesTab').onclick=()=>switchTab('expenses');$('settingsTab').onclick=()=>switchTab('settings');$('bookingsTab').onclick=()=>switchTab('bookings');
+async function loadFinanceSettings(){if(!trip)return;const [names,finance]=await Promise.all([supabase.from('trip_member_labels').select('user_id,display_name').eq('trip_id',trip.id),supabase.from('trip_finance_settings').select('default_eur_to_sgd').eq('trip_id',trip.id).maybeSingle()]);if(names.error)throw names.error;if(finance.error)throw finance.error;memberNames=Object.fromEntries((names.data||[]).map(x=>[x.user_id,x.display_name]));defaultRate=Number(finance.data?.default_eur_to_sgd)||1.50;renderSettings();$('ePayer').innerHTML=memberOptions();if(activeTab==='expenses')renderExpenses();}
+function renderSettings(){const owner=member?.role==='owner';$('nameSettings').innerHTML=members.map((m,i)=>`<label>成员 ${i+1}${m.role==='owner'?'（Owner）':''}<input data-name-id="${escapeHtml(m.user_id)}" maxlength="60" required value="${escapeHtml(memberNames[m.user_id]||`旅伴 ${i+1}`)}" ${owner?'':'disabled'}></label>`).join('');$('defaultRate').value=defaultRate;$('defaultRate').disabled=!owner;$('saveSettingsBtn').disabled=!owner;}
+$('settingsForm').addEventListener('submit',async e=>{e.preventDefault();if(member?.role!=='owner'||!trip)return;const rate=Number($('defaultRate').value);const fields=[...document.querySelectorAll('[data-name-id]')];const names=fields.map(x=>({user_id:x.dataset.nameId,display_name:x.value.trim()}));if(!Number.isFinite(rate)||rate<=0||names.some(n=>!n.display_name||n.display_name.length>60)||new Set(names.map(n=>n.display_name)).size!==names.length){notice('请填写三个不重复的成员名字和有效的正数汇率。','error');return;}const btn=$('saveSettingsBtn');btn.disabled=true;try{const r=await supabase.from('trip_member_labels').upsert(names.map(n=>({...n,trip_id:trip.id,updated_at:new Date().toISOString()})),{onConflict:'trip_id,user_id'});if(r.error)throw r.error;const f=await supabase.from('trip_finance_settings').upsert({trip_id:trip.id,default_eur_to_sgd:rate,updated_at:new Date().toISOString()},{onConflict:'trip_id'});if(f.error)throw f.error;await loadFinanceSettings();notice('名字和默认汇率已保存到 Supabase。','ok');}catch(err){notice('设置保存失败：'+errorText(err)+'；请刷新检查。','error');}finally{btn.disabled=false;}});
+async function loadExpenses(){if(!trip)return;try{const [er,sr]=await Promise.all([supabase.from('trip_expenses').select('*').eq('trip_id',trip.id).order('expense_date',{ascending:false}).order('created_at',{ascending:false}),supabase.from('trip_expense_splits').select('*').eq('trip_id',trip.id)]);if(er.error)throw er.error;if(sr.error)throw sr.error;expenses=er.data||[];splits=sr.data||[];renderExpenses();notice(`已读取 ${expenses.length} 笔共享消费。`,'ok');}catch(e){notice('读取记账失败：'+errorText(e),'error');}}
+function splitFor(e){return splits.filter(s=>s.expense_id===e.id)}
+function settlementData(){const net=Object.fromEntries(members.map(m=>[m.user_id,0]));let invalid=0;for(const e of expenses){const rate=e.currency==='EUR'?Number(e.eur_to_sgd_rate):1;if(!Number.isFinite(rate)||rate<=0){invalid++;continue;}const ss=splitFor(e);if(ss.reduce((a,s)=>a+cents(s.share_amount),0)!==cents(e.amount)){invalid++;continue;}if(!(e.paid_by in net)){invalid++;continue;}net[e.paid_by]+=cents(e.amount)*rate;for(const s of ss){if(!(s.user_id in net)){invalid++;continue;}net[s.user_id]-=cents(s.share_amount)*rate;}}
+const debtors=Object.entries(net).filter(([,v])=>v<-.005).map(([id,v])=>({id,v:-v}));const creditors=Object.entries(net).filter(([,v])=>v>.005).map(([id,v])=>({id,v}));const transfers=[];let i=0,j=0;while(i<debtors.length&&j<creditors.length){const amount=Math.min(debtors[i].v,creditors[j].v);if(amount>.005)transfers.push({from:debtors[i].id,to:creditors[j].id,amount});debtors[i].v-=amount;creditors[j].v-=amount;if(debtors[i].v<.005)i++;if(creditors[j].v<.005)j++;}return {transfers,invalid};}
+function renderExpenses(){let eur=0,sgd=0;for(const e of expenses){if(e.currency==='EUR')eur+=cents(e.amount);else sgd+=cents(e.amount);} $('expenseStats').innerHTML=`<p><b>${expenses.length} 笔消费</b> · EUR ${money('EUR',eur/100)} · SGD ${money('SGD',sgd/100)}</p><p class="muted small">成员名称由 Owner 在「设置」中管理。结算以每笔消费保存的汇率换算。</p>`;
+const categoryTotals={};for(const e of expenses){const rate=e.currency==='EUR'?Number(e.eur_to_sgd_rate):1;if(!Number.isFinite(rate)||rate<=0)continue;const cat=e.category||'other';categoryTotals[cat]=(categoryTotals[cat]||0)+Number(e.amount)*rate;}
+$('categoryStats').innerHTML='<h3>📊 消费类别统计（SGD 估算）</h3>'+(Object.keys(categoryTotals).length?Object.entries(categoryTotals).sort((a,b)=>b[1]-a[1]).map(([cat,total])=>`<div class="row spread" style="margin:7px 0"><span>${escapeHtml(categoryLabels[cat]||cat)}</span><b>S$${total.toFixed(2)}</b></div>`).join(''):'<p class="muted">暂无消费记录</p>')+'<p class="muted small">按每笔保存的汇率换算；请客消费也计入旅行总消费。</p>';
+// V2.1 per-person attribution: use actual share, not who paid.
+ const person=Object.fromEntries(members.map(m=>[m.user_id,{solo:0,shared:0,treat:0,total:0}]));let invalidPersonal=0;
+ for(const e of expenses){const rate=e.currency==='EUR'?Number(e.eur_to_sgd_rate):1;const ss=splitFor(e);if(!Number.isFinite(rate)||rate<=0||ss.reduce((a,x)=>a+cents(x.share_amount),0)!==cents(e.amount)||ss.some(x=>!(x.user_id in person))){invalidPersonal++;continue;}
+  const positive=ss.filter(x=>cents(x.share_amount)>0);const treated=String(e.note||'').startsWith('【请客】');
+  for(const x of ss){const v=cents(x.share_amount)*rate/100;const p=person[x.user_id];p.total+=v;if(treated)p.treat+=v;else if(positive.length===1)p.solo+=v;else p.shared+=v;}
+ }
+ const f=n=>'S$'+n.toFixed(2);
+ $('personalStats').innerHTML='<h3>👥 三人个人消费统计（SGD）</h3>'+(members.length?'<div style="overflow-x:auto"><table style="width:100%;font-size:13px;text-align:left"><thead><tr><th>成员</th><th>个人承担</th><th>共同分摊</th><th>请客</th><th>总承担</th></tr></thead><tbody>'+members.map(m=>{const x=person[m.user_id];return '<tr><td>'+escapeHtml(memberLabel(m.user_id))+'</td><td>'+f(x.solo)+'</td><td>'+f(x.shared)+'</td><td>'+f(x.treat)+'</td><td><b>'+f(x.total)+'</b></td></tr>';}).join('')+'</tbody></table></div>':'<p class="muted">成员尚未加载</p>')+'<p class="muted small">按实际承担金额统计，代付不算付款人的个人花费；单人承担归入个人承担，两人或三人承担归入共同分摊。新记录的请客会单独识别。旧版未标记的请客可能显示在个人承担中。</p>'+(invalidPersonal?'<p class="warning">'+invalidPersonal+' 笔分摊或汇率异常，个人统计暂不完整。</p>':'');
+ const {transfers,invalid}=settlementData();$('settlement').innerHTML=`<h2>自动结算（SGD）</h2>${invalid?`<p class="warning">有 ${invalid} 笔消费分摊或汇率不完整，结算暂不可靠，请检查。</p>`:''}${!expenses.length?'<p class="muted">还没有消费记录。</p>':transfers.length?transfers.map(t=>`<p><b>${memberLabel(t.from)}</b> → <b>${memberLabel(t.to)}</b>：S$${(t.amount/100).toFixed(2)}</p>`).join(''):'<p>目前没有需要互相偿还的金额。</p>'}<p class="muted small">根据每笔记录的 EUR→SGD 汇率换算；结算金额为估算值，最终支付以实际银行金额为准。</p>`;
+$('expenseList').innerHTML=expenses.length?expenses.map(e=>{const ss=splitFor(e);return `<article class="item"><div class="row spread"><b>${escapeHtml(e.expense_date)}</b><span class="chip">${escapeHtml(categoryLabels[e.category]||e.category)}</span></div><h3>${escapeHtml(e.title)}</h3><div class="stat">${money(e.currency,e.amount)}</div><p class="muted">付款：${memberLabel(e.paid_by)}${e.currency==='EUR'?` · 汇率 ${escapeHtml(e.eur_to_sgd_rate??'未填')}`:''}</p><div class="detail">分摊：${ss.map(s=>`${memberLabel(s.user_id)} ${money(e.currency,s.share_amount)}`).join(' · ')||'尚未分摊'}</div>${showDetails('备注',e.note)}<div class="row actions"><button data-eedit="${e.id}">编辑</button><button class="danger" data-edelete="${e.id}">删除</button></div></article>`}).join(''):'<div class="panel empty">还没有消费，点击「记录消费」新增第一笔。</div>';
+}
+function selectedParticipants(){return [...document.querySelectorAll('[data-participant]')].filter(x=>x.checked).map(x=>x.dataset.participant)}
+function renderParticipants(selected){$('participantInputs').innerHTML=members.map(m=>`<label style="font-weight:400;margin:7px 0"><input style="display:inline;width:auto;margin:0 9px 0 0" type="checkbox" data-participant="${escapeHtml(m.user_id)}" ${selected.includes(m.user_id)?'checked':''}>${escapeHtml(memberLabel(m.user_id))}</label>`).join('');}
+function splitRender(values){const total=cents($('eAmount').value);const equal=$('eMode').value==='equal';const treat=$('eMode').value==='treat';const personal=$('eMode').value==='personal';const selected=selectedParticipants();let amounts=values;if(personal){amounts=members.map(m=>m.user_id===$('eBeneficiary').value?total/100:0);}else if(treat){amounts=members.map(m=>m.user_id===$('ePayer').value?total/100:0);}else if(equal){const base=selected.length?Math.floor(total/selected.length):0;let rem=selected.length?total-base*selected.length:0;amounts=members.map(m=>selected.includes(m.user_id)?(base+(rem-->0?1:0))/100:0);}else if(!amounts)amounts=members.map(()=>0);$('participantBox').classList.toggle('hidden',!equal);$('personalBox').classList.toggle('hidden',!personal);$('splitInputs').innerHTML=members.map((m,i)=>`<div class="splitrow"><label>${escapeHtml(memberLabel(m.user_id))}</label><input data-share="${escapeHtml(m.user_id)}" type="number" step="0.01" min="0" inputmode="decimal" value="${Number(amounts[i]||0).toFixed(2)}" ${equal||treat||personal?'readonly':''}></div>`).join('');checkSplit();}
+function checkSplit(){const total=cents($('eAmount').value);const sum=[...document.querySelectorAll('[data-share]')].reduce((a,x)=>a+cents(x.value),0);const participants=$('eMode').value!=='equal'||selectedParticipants().length>0;$('splitCheck').textContent=`分摊合计 ${money($('eCurrency').value,sum/100)} / 消费总额 ${money($('eCurrency').value,total/100)} ${sum===total&&total>0&&participants?'✓ 正确':'（必须一致，至少选择1人）'}`;$('splitCheck').className=sum===total&&total>0&&participants?'good':'warning';}
+$('participantInputs').addEventListener('change',()=>splitRender());$('splitInputs').addEventListener('input',checkSplit);$('eAmount').addEventListener('input',()=>{if($('eMode').value!=='custom')splitRender();else checkSplit()});$('eCurrency').addEventListener('change',()=>{if($('eCurrency').value==='EUR'&&!$('eRate').value)$('eRate').value=defaultRate;checkSplit()});$('eMode').addEventListener('change',()=>{if($('eMode').value==='personal')$('eBeneficiary').value=$('ePayer').value;splitRender();});$('eBeneficiary').addEventListener('change',()=>splitRender());$('ePayer').addEventListener('change',()=>{if($('eMode').value==='personal')$('eBeneficiary').value=$('ePayer').value;if(['treat','personal'].includes($('eMode').value))splitRender();});
+function openExpense(e=null){$('expenseEditorTitle').textContent=e?'编辑消费':'记录消费';$('expenseId').value=e?.id||'';$('eDate').value=e?.expense_date||selected;$('eTitle').value=e?.title||'';$('eCategory').value=e?.category||'food';$('eCurrency').value=e?.currency||'EUR';$('eAmount').value=e?.amount??'';$('ePayer').innerHTML=memberOptions();$('ePayer').value=e?.paid_by||lastPayer||members[0]?.user_id||'';$('eBeneficiary').innerHTML=members.map(m=>`<option value="${escapeHtml(m.user_id)}">${escapeHtml(memberLabel(m.user_id))}</option>`).join('');$('eRate').value=e?.eur_to_sgd_rate??defaultRate;$('eNote').value=String(e?.note||'').replace(/^【(?:请客|个人消费)】\s*/,'');const ss=e?splitFor(e):[];const positive=ss.filter(x=>cents(x.share_amount)>0);const markedPersonal=String(e?.note||'').startsWith('【个人消费】');$('eMode').value=e?(String(e.note||'').startsWith('【请客】')?'treat':markedPersonal?'personal':'custom'):'equal';$('eBeneficiary').value=markedPersonal&&positive.length===1?positive[0].user_id:$('ePayer').value;renderParticipants(e?ss.filter(x=>Number(x.share_amount)>0).map(x=>x.user_id):members.map(x=>x.user_id));splitRender(e?members.map(m=>ss.find(s=>s.user_id===m.user_id)?.share_amount||0):null);toggle('expenseEditor',true);$('expenseEditor').scrollIntoView({behavior:'smooth'});}
+$('addExpenseBtn').onclick=()=>openExpense();$('cancelExpenseBtn').onclick=()=>toggle('expenseEditor',false);$('reloadExpensesBtn').onclick=loadExpenses;
+$('expenseList').addEventListener('click',async ev=>{const b=ev.target.closest('button');if(!b||expenseBusy)return;const id=b.dataset.eedit||b.dataset.edelete;const e=expenses.find(x=>x.id===id);if(!e)return;if(b.dataset.eedit){openExpense(e);return;}if(!confirm('确定删除这笔消费及其分摊吗？此操作会影响三人结算。'))return;expenseBusy=true;try{const {error}=await supabase.from('trip_expenses').delete().eq('id',id).eq('trip_id',trip.id);if(error)throw error;await loadExpenses();}catch(err){notice('删除消费失败：'+errorText(err),'error')}finally{expenseBusy=false;}});
+$('expenseForm').addEventListener('submit',async ev=>{ev.preventDefault();if(expenseBusy||!trip)return;const amount=cents($('eAmount').value);const values=[...document.querySelectorAll('[data-share]')].map(x=>({user_id:x.dataset.share,share_amount:cents(x.value)/100}));if(($('eMode').value==='equal'&&!selectedParticipants().length)||!Number.isSafeInteger(amount)||amount<=0||values.length!==members.length||values.some(v=>!Number.isFinite(v.share_amount)||v.share_amount<0)||values.reduce((a,v)=>a+cents(v.share_amount),0)!==amount){notice('消费金额必须大于0，且三人的分摊金额必须与总金额完全一致。','error');return;}const currency=$('eCurrency').value,rate=Number($('eRate').value);if(currency==='EUR'&&(!Number.isFinite(rate)||rate<=0)){notice('EUR 消费必须填写有效的 EUR→SGD 汇率。','error');return;}if(!members.some(m=>m.user_id===$('ePayer').value)){notice('付款人必须是三位旅行成员之一。','error');return;}const payload={trip_id:trip.id,expense_date:$('eDate').value,title:$('eTitle').value.trim(),category:$('eCategory').value,currency,amount:amount/100,paid_by:$('ePayer').value,eur_to_sgd_rate:currency==='EUR'?rate:null,note:($('eMode').value==='treat'?'【请客】 ':$('eMode').value==='personal'?'【个人消费】 ':'')+$('eNote').value.trim(),updated_at:new Date().toISOString()};if(!payload.title||!dates.includes(payload.expense_date)){notice('请填写消费项目，并选择旅行日期。','error');return;}
+expenseBusy=true;$('saveExpenseBtn').disabled=true;const id=$('expenseId').value;let createdId=null;try{if(id){const {error}=await supabase.from('trip_expenses').update(payload).eq('id',id).eq('trip_id',trip.id);if(error)throw error;const {error:de}=await supabase.from('trip_expense_splits').delete().eq('expense_id',id).eq('trip_id',trip.id);if(de)throw de;const {error:se}=await supabase.from('trip_expense_splits').insert(values.map(v=>({...v,trip_id:trip.id,expense_id:id})));if(se)throw se;}else{payload.created_by=(await supabase.auth.getUser()).data.user?.id;const {data,error}=await supabase.from('trip_expenses').insert(payload).select('id').single();if(error)throw error;createdId=data.id;const {error:se}=await supabase.from('trip_expense_splits').insert(values.map(v=>({...v,trip_id:trip.id,expense_id:createdId})));if(se)throw se;}
+lastPayer=payload.paid_by;toggle('expenseEditor',false);await loadExpenses();}catch(err){if(createdId){const {error:rollback}=await supabase.from('trip_expenses').delete().eq('id',createdId).eq('trip_id',trip.id);if(rollback)notice('保存失败，且自动清理未完成。请刷新检查未分摊记录：'+errorText(err),'error');else notice('保存失败，已撤销新增记录：'+errorText(err),'error');}else notice('保存失败：'+errorText(err)+'。如果是编辑，请刷新核对分摊记录。','error');}finally{expenseBusy=false;$('saveExpenseBtn').disabled=false;}});
+$('exportExpensesBtn').onclick=()=>{const rows=[['日期','项目','类别','币种','金额','付款人','EUR兑SGD',...members.map(m=>memberLabel(m.user_id)+'分摊'),'备注']];for(const e of expenses){const ss=splitFor(e);rows.push([e.expense_date,e.title,categoryLabels[e.category]||e.category,e.currency,e.amount,memberLabel(e.paid_by),e.eur_to_sgd_rate??'',...members.map(m=>ss.find(s=>s.user_id===m.user_id)?.share_amount??''),e.note])}const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\r\n');const a=document.createElement('a');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='Italy_Trip_2026_Expenses.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
-alter table public.trip_bookings enable row level security;
 
--- All members may read bookings for their own trip.
-drop policy if exists "trip_bookings_select_members_v25" on public.trip_bookings;
-create policy "trip_bookings_select_members_v25"
-on public.trip_bookings for select to authenticated
-using (exists (
-  select 1 from public.trip_members tm
-  where tm.trip_id = trip_bookings.trip_id and tm.user_id = (select auth.uid())
-));
+// V2.5 booking records are independent from itinerary and expense records.
+const bookingTypes={hotel:'🏨 酒店',flight:'✈️ 机票',car:'🚗 租车',train:'🚆 火车',ticket:'🎟️ 门票',activity:'⛷️ 活动',other:'其他'};
+const bookingStatuses={planned:'计划中',confirmed:'已确认',cancelled:'已取消'};
+function bookingLocalParts(iso){if(!iso)return {date:'',time:''};const d=new Date(iso);if(Number.isNaN(d.getTime()))return {date:'',time:''};const f=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});const o=Object.fromEntries(f.formatToParts(d).map(x=>[x.type,x.value]));return {date:`${o.year}-${o.month}-${o.day}`,time:`${o.hour}:${o.minute}`};}
+function bookingIso(date,time){if(!date)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('日期格式不正确');const clock=time||'12:00';const iso=`${date}T${clock}:00+01:00`;if(Number.isNaN(Date.parse(iso)))throw Error('预订日期或时间无效');return new Date(iso).toISOString();}
+function bookingDisplay(iso){if(!iso)return '未设置';const p=bookingLocalParts(iso);return `${p.date} ${p.time==='12:00'?'':p.time}`.trim();}
+function bookingCanEdit(){return member?.role==='owner'||member?.role==='editor'}
+async function loadBookings(){if(!trip)return;try{const all=[];for(let from=0;from<10000;from+=500){const {data,error}=await supabase.from('trip_bookings').select('*').eq('trip_id',trip.id).order('start_at',{ascending:true,nullsFirst:false}).range(from,from+499);if(error)throw error;all.push(...(data||[]));if(!data||data.length<500)break;}bookings=all;renderBookings();notice(`已读取 ${bookings.length} 项共享预订。`,'ok');}catch(err){notice('读取预订失败：'+errorText(err),'error');}}
+function renderBookings(){const can=bookingCanEdit();$('addBookingBtn').disabled=!can;$('bookingList').innerHTML=bookings.length?bookings.map(b=>`<article class="item"><div class="row spread"><span class="chip">${escapeHtml(bookingTypes[b.booking_type]||b.booking_type)}</span><span class="chip">${escapeHtml(bookingStatuses[b.booking_status]||b.booking_status)}</span></div><h3>${escapeHtml(b.title)}</h3><div class="detail"><b>开始：</b>${escapeHtml(bookingDisplay(b.start_at))}　<b>结束：</b>${escapeHtml(bookingDisplay(b.end_at))}</div>${showDetails('地点',b.location_text)}${showDetails('供应商',b.provider)}${showDetails('确认号码',b.confirmation_code)}<div class="detail"><b>订单总价：</b>${b.total_amount===null?'未填写':money(b.currency,b.total_amount)}（不计入记账）</div>${showDetails('付款截止',b.payment_due_date)}${showDetails('备注',b.notes)}<div class="row actions"><button data-bedit="${escapeHtml(b.id)}" ${can?'':'disabled'}>编辑</button><button class="danger" data-bdelete="${escapeHtml(b.id)}" ${can?'':'disabled'}>删除预订</button></div></article>`).join(''):'<div class="panel empty">尚无预订。可以新增 Lamondis 酒店、SIXT 租车或机票。</div>';}
+function editBooking(b=null){$('bookingEditorTitle').textContent=b?'编辑预订':'新增预订';$('bId').value=b?.id||'';$('bType').value=b?.booking_type||'hotel';$('bStatus').value=b?.booking_status||'planned';$('bTitle').value=b?.title||'';const a=bookingLocalParts(b?.start_at),z=bookingLocalParts(b?.end_at);$('bStartDate').value=a.date;$('bStartTime').value=a.time;$('bEndDate').value=z.date;$('bEndTime').value=z.time;$('bLocation').value=b?.location_text||'';$('bProvider').value=b?.provider||'';$('bCode').value=b?.confirmation_code||'';$('bAmount').value=b?.total_amount??'';$('bCurrency').value=b?.currency||'EUR';$('bDue').value=b?.payment_due_date||'';$('bNotes').value=b?.notes||'';toggle('bookingEditor',true);$('bookingEditor').scrollIntoView({behavior:'smooth'});}
+$('addBookingBtn').onclick=()=>editBooking();$('cancelBookingBtn').onclick=()=>toggle('bookingEditor',false);$('reloadBookingsBtn').onclick=loadBookings;
+$('bookingList').addEventListener('click',async ev=>{const btn=ev.target.closest('button');if(!btn||bookingBusy||!bookingCanEdit())return;const id=btn.dataset.bedit||btn.dataset.bdelete;const b=bookings.find(x=>x.id===id);if(!b)return;if(btn.dataset.bedit){editBooking(b);return;}if(!confirm(`确定删除预订「${b.title}」吗？不会删除行程或消费，但当前完整备份不包含预订！`))return;bookingBusy=true;try{const {data,error}=await supabase.from('trip_bookings').delete().eq('id',id).eq('trip_id',trip.id).select('id');if(error)throw error;if(data?.length!==1)throw Error('删除未确认成功，请检查成员权限');await loadBookings();}catch(err){notice('删除预订失败：'+errorText(err),'error')}finally{bookingBusy=false;}});
+$('bookingForm').addEventListener('submit',async ev=>{ev.preventDefault();if(bookingBusy||!trip||!bookingCanEdit())return;let payload;try{const title=$('bTitle').value.trim();const raw=$('bAmount').value.trim();const amount=raw===''?null:Number(raw);if(!title||title.length>200)throw Error('请填写预订名称（最多200字）');if(amount!==null&&(!Number.isFinite(amount)||amount<0||Math.round(amount*100)!==amount*100))throw Error('总金额最多保留两位小数且不可为负数');if($('bStartTime').value&&!$('bStartDate').value||$('bEndTime').value&&!$('bEndDate').value)throw Error('填写时间时必须同时填写日期');const start_at=bookingIso($('bStartDate').value,$('bStartTime').value),end_at=bookingIso($('bEndDate').value,$('bEndTime').value);if(start_at&&end_at&&end_at<start_at)throw Error('结束日期不能早于开始日期');payload={trip_id:trip.id,booking_type:$('bType').value,booking_status:$('bStatus').value,title,start_at,end_at,location_text:$('bLocation').value.trim(),provider:$('bProvider').value.trim(),confirmation_code:$('bCode').value.trim(),total_amount:amount,currency:$('bCurrency').value,payment_due_date:$('bDue').value||null,notes:$('bNotes').value.trim(),updated_at:new Date().toISOString()};}catch(err){notice(errorText(err),'error');return;}
+bookingBusy=true;$('saveBookingBtn').disabled=true;try{const id=$('bId').value;let q;if(id){q=supabase.from('trip_bookings').update(payload).eq('id',id).eq('trip_id',trip.id).select('id');}else{q=supabase.from('trip_bookings').insert(payload).select('id');}const {data,error}=await q;if(error)throw error;if(data?.length!==1)throw Error('保存未确认成功，请检查成员权限');toggle('bookingEditor',false);await loadBookings();notice('预订已保存到共享云端。请记得单独导出预订备份。','ok');}catch(err){notice('保存预订失败：'+errorText(err),'error')}finally{bookingBusy=false;$('saveBookingBtn').disabled=false;}});
+$('exportBookingsBtn').onclick=async()=>{if(!trip)return;try{await loadBookings();downloadJsonFile({app:'Italy Trip 2026',type:'bookings-only-backup',version:'2.5',exportedAt:new Date().toISOString(),tripId:trip.id,bookings},`Italy_Trip_2026_Bookings_${new Date().toISOString().slice(0,10)}.json`);notice(`已下载 ${bookings.length} 项预订的单独备份（只用于保管，尚无导入功能）。`,'ok');}catch(err){notice('预订导出失败：'+errorText(err),'error')}};
 
--- Owner and editors may add and edit bookings for their own trip.
-drop policy if exists "trip_bookings_insert_editors_v25" on public.trip_bookings;
-create policy "trip_bookings_insert_editors_v25"
-on public.trip_bookings for insert to authenticated
-with check (
-  created_by = (select auth.uid()) and
-  exists (select 1 from public.trip_members tm
-    where tm.trip_id = trip_bookings.trip_id
-      and tm.user_id = (select auth.uid())
-      and tm.role in ('owner','editor'))
-);
-
-drop policy if exists "trip_bookings_update_editors_v25" on public.trip_bookings;
-create policy "trip_bookings_update_editors_v25"
-on public.trip_bookings for update to authenticated
-using (exists (select 1 from public.trip_members tm
-  where tm.trip_id = trip_bookings.trip_id
-    and tm.user_id = (select auth.uid())
-    and tm.role in ('owner','editor')))
-with check (exists (select 1 from public.trip_members tm
-  where tm.trip_id = trip_bookings.trip_id
-    and tm.user_id = (select auth.uid())
-    and tm.role in ('owner','editor')));
-
-drop policy if exists "trip_bookings_delete_editors_v25" on public.trip_bookings;
-create policy "trip_bookings_delete_editors_v25"
-on public.trip_bookings for delete to authenticated
-using (exists (select 1 from public.trip_members tm
-  where tm.trip_id = trip_bookings.trip_id
-    and tm.user_id = (select auth.uid())
-    and tm.role in ('owner','editor')));
-
--- No public/anonymous table access.
-revoke all on public.trip_bookings from anon;
-grant select, insert, update, delete on public.trip_bookings to authenticated;
-
-commit;
-
--- Read-only verification: should return the newly created table.
-select table_name from information_schema.tables
-where table_schema = 'public' and table_name = 'trip_bookings';
+supabase.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT')setTimeout(()=>onSession(session),0);if(event==='PASSWORD_RECOVERY'){recovering=true;toggle('login',false);toggle('app',false);toggle('recovery',true);notice('请在下方设置新密码。','ok');}});
+init();
+</script></body></html>
