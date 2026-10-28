@@ -1,20 +1,19 @@
 
-const CACHE = 'italy-trip-2026-v31';
+const CACHE = 'italy-trip-2026-v32';
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE)
-      .then(cache => cache.addAll(['./', './index.html']))
+      .then(c => c.addAll(['./', './index.html']))
       .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    for (const key of keys) {
-      if (key.startsWith('italy-trip-2026-') && key !== CACHE) {
-        await caches.delete(key);
+    for (const k of await caches.keys()) {
+      if (k.startsWith('italy-trip-2026-') && k !== CACHE) {
+        await caches.delete(k);
       }
     }
     await self.clients.claim();
@@ -22,49 +21,46 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
+  const url = new URL(req.url);
 
-  // Supabase 云端数据不缓存为公开网页资源。
   if (url.hostname.endsWith('.supabase.co')) return;
 
-  if (event.request.mode === 'navigate') {
+  if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then(cache =>
-              cache.put('./index.html', copy)
+      fetch(req)
+        .then(r => {
+          if (r.ok) {
+            const clone = r.clone();
+            caches.open(CACHE).then(c =>
+              c.put('./index.html', clone)
             );
           }
-          return response;
+          return r;
         })
         .catch(async () =>
-          (await caches.match('./index.html')) ||
-          Response.error()
+          await caches.match('./index.html') || Response.error()
         )
     );
     return;
   }
 
-  if (url.origin === self.location.origin ||
-      url.hostname === 'cdn.jsdelivr.net') {
+  if (url.hostname === 'cdn.jsdelivr.net' ||
+      url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-
-        return fetch(event.request).then(response => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then(cache =>
-              cache.put(event.request, copy)
+      caches.match(req).then(cached =>
+        cached || fetch(req).then(r => {
+          if (r.ok) {
+            const copy = r.clone();
+            caches.open(CACHE).then(c =>
+              c.put(req, copy)
             );
           }
-          return response;
-        });
-      })
+          return r;
+        })
+      )
     );
   }
 });
